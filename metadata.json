@@ -1,0 +1,8 @@
+{
+  "name": "Auto & Cab Booking",
+  "description": "A premium, minimal auto and cab booking platform with an admin dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
