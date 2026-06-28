@@ -8,7 +8,6 @@
   <img src="https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/express.js-%23404d59.svg?style=for-the-badge&logo=express&logoColor=%2361DAFB" alt="Express.js" />
   <img src="https://img.shields.io/badge/WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" alt="WhatsApp Bot" />
-  <img src="https://img.shields.io/badge/Gemini_AI-8E75B2?style=for-the-badge&logo=google-gemini&logoColor=white" alt="Gemini AI" />
   <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
 </div>
 
@@ -42,7 +41,6 @@ The platform leverages a modern, full-stack architecture prioritizing real-time 
 - **Frontend Core:** [React 18](https://react.dev/) with [Vite](https://vitejs.dev/) and [Tailwind CSS](https://tailwindcss.com/).
 - **Backend Server:** [Express.js](https://expressjs.com/) for handling API routes, webhooks, and static file serving.
 - **WhatsApp Engine:** [@whiskeysockets/baileys](https://github.com/WhiskeySockets/Baileys) for robust, socket-based WhatsApp Web API connections.
-- **AI Integration:** [Google GenAI SDK](https://ai.google.dev/) for natural language processing and conversational understanding.
 - **Database:** [Supabase](https://supabase.com/) and PostgreSQL for secure, scalable data persistence and real-time synchronization.
 - **Motion & UI:** `motion/react` for performant transitions and [Lucide React](https://lucide.dev/) for crisp iconography.
 
