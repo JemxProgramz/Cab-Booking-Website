@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
-import { Booking } from '../../types';
 import { BarChart3, TrendingUp, Clock, CheckCircle, XCircle } from 'lucide-react';
-import { format, isToday } from 'date-fns';
+import { isToday } from 'date-fns';
 import toast from 'react-hot-toast';
 
 export default function AdminDashboard() {

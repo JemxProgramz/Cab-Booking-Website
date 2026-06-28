@@ -3,7 +3,7 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Booking, BookingStatus } from '../../types';
 import { format, isToday, isTomorrow, isThisWeek } from 'date-fns';
 import toast from 'react-hot-toast';
-import { Search, Edit2, Trash2, Eye, Filter, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Search, Edit2, Trash2, Filter, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { fetchApi } from '../../lib/api';
@@ -327,11 +327,9 @@ export default function AdminBookings() {
                       <CheckCircle size={16} /> Complete
                     </button>
                   )}
-                  {booking.status !== 'Cancelled' && booking.status !== 'Completed' && (
-                    <button onClick={() => handleUpdateStatus(booking.id, 'Cancelled')} className="flex-1 flex justify-center items-center gap-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 px-4 py-2.5 rounded-lg transition-colors">
-                      <XCircle size={16} /> Decline
-                    </button>
-                  )}
+                  <button onClick={() => handleUpdateStatus(booking.id, 'Cancelled')} className="flex-1 flex justify-center items-center gap-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 px-4 py-2.5 rounded-lg transition-colors">
+                    <XCircle size={16} /> Decline
+                  </button>
                 </div>
               )}
             </div>

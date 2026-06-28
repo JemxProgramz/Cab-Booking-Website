@@ -13,20 +13,28 @@ import helmet from "helmet";
 import xss from "xss";
 import { z } from "zod";
 
+// Initialize environment variables
 dotenv.config();
 import { createClient } from '@supabase/supabase-js';
 import pg from 'pg';
 
+// Database connection string for PostgreSQL direct queries
 const dbConnectionString = "postgresql://postgres:Auto@@&&CABD@db.bxvfcvszhvrbglvmuwxy.supabase.co:5432/postgres";
 
+// Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder');
 
+// Global variables to hold WhatsApp session state
 let sock: any = null;
 let qrCodeValue: string | null = null;
 let isConnected = false;
 
+/**
+ * Initializes and manages the WhatsApp Web connection using Baileys.
+ * Handles QR code generation, session state, auto-reconnection, and incoming message parsing.
+ */
 async function connectToWhatsApp() {
   try {
     const { state, saveCreds } = await useMultiFileAuthState("auth_info_baileys");
@@ -168,6 +176,10 @@ process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
 });
 
+/**
+ * Bootstraps the Express.js API server and configures Vite middleware for local development.
+ * Sets up routing, security middlewares, and the WhatsApp messaging endpoints.
+ */
 async function startServer() {
   const app = express();
   app.set("trust proxy", 1);

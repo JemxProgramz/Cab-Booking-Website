@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import { Car, Lock, Mail } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function Login() {

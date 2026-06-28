@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, XCircle, ChevronLeft, MapPin, Calendar, Clock, Car } from 'lucide-react';
+import { Search, XCircle, ChevronLeft, MapPin, Calendar, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Booking } from '../types';

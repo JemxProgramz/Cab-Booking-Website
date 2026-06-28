@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { MapPin, Clock, Phone, CheckCircle2, Shield, Star, ThumbsUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Clock, Phone, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Home() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);

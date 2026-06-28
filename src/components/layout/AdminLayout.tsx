@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, CalendarDays, Settings as SettingsIcon, LogOut, Menu, X, Car } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Settings as SettingsIcon, LogOut, Menu, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useState } from 'react';
 
