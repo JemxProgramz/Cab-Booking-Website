@@ -9,7 +9,7 @@ import { fetchApi } from '../../lib/api';
 export default function AdminSettings() {
   const [settings, setSettings] = useState<Settings>({
     id: '1',
-    business_name: 'Ram Cabs & Travels',
+    business_name: 'Ram Autos & Cabs',
     phone_number: '+1234567890',
     whatsapp_number: '+91 9342469403',
     business_address: '123 Main St, City, Country'

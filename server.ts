@@ -281,7 +281,7 @@ async function startServer() {
       if (cleanNumber.length === 10) cleanNumber = '91' + cleanNumber;
       const jid = `${cleanNumber}@s.whatsapp.net`;
       
-      const adminMessage = `🤖 *Ram Cabs & Travels Bot - Admin Alert* 🤖\n\n` +
+      const adminMessage = `🤖 *Ram Autos & Cabs Bot - Admin Alert* 🤖\n\n` +
         `🚨 *NEW BOOKING RECEIVED*\n\n` +
         `👤 *Customer:* ${newBooking.name}\n` +
         `📞 *Phone:* ${newBooking.phone}\n` +
@@ -301,7 +301,7 @@ async function startServer() {
 
       await sock.sendMessage(jid, { 
         text: adminMessage,
-        footer: 'Ram Cabs & Travels',
+        footer: 'Ram Autos & Cabs',
         buttons: buttons,
         headerType: 1
       }).catch((e: any) => console.error(e));
@@ -311,17 +311,16 @@ async function startServer() {
         if (customerClean.length === 10) customerClean = '91' + customerClean;
         const customerJid = `${customerClean}@s.whatsapp.net`;
         
-        const customerMessage = `🤖 *Ram Cabs & Travels Bot* 🤖\n\n` +
-          `Hi *${newBooking.name}*, thank you for choosing us!\n` +
+        const customerMessage = `👋 Welcome to Ram Autos & Cabs!\n\n` +
+          `Hi ${newBooking.name}, thank you for choosing us!\n` +
           `Your ride request has been successfully received.\n\n` +
-          `📋 *--- BOOKING SUMMARY ---*\n` +
-          `🆔 *Booking ID:* ${newBooking.booking_id}\n` +
-          `📅 *Date:* ${newBooking.booking_date}\n` +
-          `⏰ *Time:* ${newBooking.booking_time}\n` +
-          `📍 *Pickup:* ${newBooking.pickup_location || 'Not provided'}\n` +
-          `---------------------------\n\n` +
-          `Our team will review your request and contact you shortly with driver details.\n\n` +
-          `_Powered by Ram Cabs & Travels Automated System_`;
+          `Your Trip Details:\n\n` +
+          `🆔Booking ID: ${newBooking.booking_id}\n\n` +
+          `📅Date: ${newBooking.booking_date}\n\n` +
+          `⏰Time: ${newBooking.booking_time}\n\n` +
+          `📍Pickup: ${newBooking.pickup_location || 'Not provided'}\n\n` +
+          `Please give us a few moments to find the nearest available driver for you. We will message you back shortly with their contact details!\n\n` +
+          `_Powered by Jemx Automation System_`;
 
         await sock.sendMessage(customerJid, { text: customerMessage }).catch((e: any) => console.error(e));
       }
@@ -374,7 +373,7 @@ async function startServer() {
         console.error("Error checking if number exists on WhatsApp:", err);
       }
       
-      const adminMessage = `🤖 *Ram Cabs & Travels Bot - Admin Alert* 🤖\n\n` +
+      const adminMessage = `🤖 *Ram Autos & Cabs Bot - Admin Alert* 🤖\n\n` +
         `🚨 *NEW BOOKING RECEIVED*\n\n` +
         `👤 *Customer:* ${booking.name}\n` +
         `📞 *Phone:* ${booking.phone}\n` +
@@ -394,7 +393,7 @@ async function startServer() {
 
       await sock.sendMessage(jid, { 
         text: adminMessage,
-        footer: 'Ram Cabs & Travels',
+        footer: 'Ram Autos & Cabs',
         buttons: buttons,
         headerType: 1
       });
@@ -407,17 +406,16 @@ async function startServer() {
         }
         const customerJid = `${customerClean}@s.whatsapp.net`;
         
-        const customerMessage = `🤖 *Ram Cabs & Travels Bot* 🤖\n\n` +
-          `Hi *${booking.name}*, thank you for choosing us!\n` +
+        const customerMessage = `👋 Welcome to Ram Autos & Cabs!\n\n` +
+          `Hi ${booking.name}, thank you for choosing us!\n` +
           `Your ride request has been successfully received.\n\n` +
-          `📋 *--- BOOKING SUMMARY ---*\n` +
-          `🆔 *Booking ID:* ${booking.booking_id}\n` +
-          `📅 *Date:* ${booking.booking_date}\n` +
-          `⏰ *Time:* ${booking.booking_time}\n` +
-          `📍 *Pickup:* ${booking.pickup_location || 'Not provided'}\n` +
-          `---------------------------\n\n` +
-          `Our team will review your request and contact you shortly with driver details.\n\n` +
-          `_Powered by Ram Cabs & Travels Automated System_`;
+          `Your Trip Details:\n\n` +
+          `🆔Booking ID: ${booking.booking_id}\n\n` +
+          `📅Date: ${booking.booking_date}\n\n` +
+          `⏰Time: ${booking.booking_time}\n\n` +
+          `📍Pickup: ${booking.pickup_location || 'Not provided'}\n\n` +
+          `Please give us a few moments to find the nearest available driver for you. We will message you back shortly with their contact details!\n\n` +
+          `_Powered by Jemx Automation System_`;
 
         try {
           await sock.sendMessage(customerJid, { text: customerMessage });
@@ -492,27 +490,32 @@ async function startServer() {
           
           let statusMessage = '';
           if (booking.status === 'Confirmed') {
-            statusMessage = `🤖 *Ram Cabs & Travels Bot* 🤖\n\n` +
-              `Hi *${booking.name}*, great news!\n` +
-              `Your ride (ID: ${booking.booking_id}) has been *CONFIRMED*.\n\n` +
-              `📅 *Date:* ${booking.booking_date}\n` +
-              `⏰ *Time:* ${booking.booking_time}\n` +
-              `📍 *Pickup:* ${booking.pickup_location || 'Not provided'}\n\n` +
-              `The driver will arrive at the scheduled time. Thank you for choosing us!`;
+            statusMessage = `✅ Ride Confirmed!\n\n` +
+              `Hi ${booking.name},\n` +
+              `Great news! Your ride (Booking ID: ${booking.booking_id}) has been confirmed.\n\n` +
+              `Trip Details:\n` +
+              `📅 Date: ${booking.booking_date}\n` +
+              `⏰ Time: ${booking.booking_time}\n` +
+              `📍 Pickup: ${booking.pickup_location || 'Not provided'}\n\n` +
+              `Our driver will arrive at the scheduled time. Thank you for choosing Ram Autos & Cabs!\n\n` +
+              `_Powered by Jemx Automation System_`;
           } else if (booking.status === 'Completed') {
-            statusMessage = `🤖 *Ram Cabs & Travels Bot* 🤖\n\n` +
-              `Hi *${booking.name}*,\n` +
-              `Your ride (ID: ${booking.booking_id}) is now marked as *COMPLETED*.\n\n` +
-              `We hope you had a great trip with Ram Cabs & Travels!`;
+            statusMessage = `🎉 Ride Completed!\n\n` +
+              `Hi ${booking.name},\n` +
+              `Your ride (Booking ID: ${booking.booking_id}) is now marked as completed.\n\n` +
+              `We hope you had a great trip with Ram Autos & Cabs! If you have a moment, we'd love to hear your feedback.\n\n` +
+              `_Powered by Jemx Automation System_`;
           } else if (booking.status === 'Cancelled') {
-            statusMessage = `🤖 *Ram Cabs & Travels Bot* 🤖\n\n` +
-              `Hi *${booking.name}*,\n` +
-              `We regret to inform you that your ride (ID: ${booking.booking_id}) has been *CANCELLED*.\n\n` +
-              `If you have any questions or would like to rebook, please contact our support.`;
+            statusMessage = `❌ Ride Cancelled\n\n` +
+              `Hi ${booking.name},\n` +
+              `We regret to inform you that your ride (Booking ID: ${booking.booking_id}) has been cancelled.\n\n` +
+              `If you have any questions or would like to rebook, please contact our support team.\n\n` +
+              `_Powered by Jemx Automation System_`;
           } else {
-             statusMessage = `🤖 *Ram Cabs & Travels Bot* 🤖\n\n` +
-              `Hi *${booking.name}*,\n` +
-              `Your ride (ID: ${booking.booking_id}) status has been updated to: *${booking.status}*.`;
+             statusMessage = `🔔 Booking Status Update\n\n` +
+              `Hi ${booking.name},\n` +
+              `Your ride (Booking ID: ${booking.booking_id}) status has been updated to: ${booking.status}.\n\n` +
+              `_Powered by Jemx Automation System_`;
           }
 
           try {
@@ -576,27 +579,32 @@ async function startServer() {
         
         let statusMessage = '';
         if (booking.status === 'Confirmed') {
-          statusMessage = `🤖 *Ram Cabs & Travels Bot* 🤖\n\n` +
-            `Hi *${booking.name}*, great news!\n` +
-            `Your ride (ID: ${booking.booking_id}) has been *CONFIRMED*.\n\n` +
-            `📅 *Date:* ${booking.booking_date}\n` +
-            `⏰ *Time:* ${booking.booking_time}\n` +
-            `📍 *Pickup:* ${booking.pickup_location || 'Not provided'}\n\n` +
-            `The driver will arrive at the scheduled time. Thank you for choosing us!`;
+          statusMessage = `✅ Ride Confirmed!\n\n` +
+            `Hi ${booking.name},\n` +
+            `Great news! Your ride (Booking ID: ${booking.booking_id}) has been confirmed.\n\n` +
+            `Trip Details:\n` +
+            `📅 Date: ${booking.booking_date}\n` +
+            `⏰ Time: ${booking.booking_time}\n` +
+            `📍 Pickup: ${booking.pickup_location || 'Not provided'}\n\n` +
+            `Our driver will arrive at the scheduled time. Thank you for choosing Ram Autos & Cabs!\n\n` +
+            `_Powered by Jemx Automation System_`;
         } else if (booking.status === 'Completed') {
-          statusMessage = `🤖 *Ram Cabs & Travels Bot* 🤖\n\n` +
-            `Hi *${booking.name}*,\n` +
-            `Your ride (ID: ${booking.booking_id}) is now marked as *COMPLETED*.\n\n` +
-            `We hope you had a great trip with Ram Cabs & Travels!`;
+          statusMessage = `🎉 Ride Completed!\n\n` +
+            `Hi ${booking.name},\n` +
+            `Your ride (Booking ID: ${booking.booking_id}) is now marked as completed.\n\n` +
+            `We hope you had a great trip with Ram Autos & Cabs! If you have a moment, we'd love to hear your feedback.\n\n` +
+            `_Powered by Jemx Automation System_`;
         } else if (booking.status === 'Cancelled') {
-          statusMessage = `🤖 *Ram Cabs & Travels Bot* 🤖\n\n` +
-            `Hi *${booking.name}*,\n` +
-            `We regret to inform you that your ride (ID: ${booking.booking_id}) has been *CANCELLED*.\n\n` +
-            `If you have any questions or would like to rebook, please contact our support.`;
+          statusMessage = `❌ Ride Cancelled\n\n` +
+            `Hi ${booking.name},\n` +
+            `We regret to inform you that your ride (Booking ID: ${booking.booking_id}) has been cancelled.\n\n` +
+            `If you have any questions or would like to rebook, please contact our support team.\n\n` +
+            `_Powered by Jemx Automation System_`;
         } else {
-           statusMessage = `🤖 *Ram Cabs & Travels Bot* 🤖\n\n` +
-            `Hi *${booking.name}*,\n` +
-            `Your ride (ID: ${booking.booking_id}) status has been updated to: *${booking.status}*.`;
+           statusMessage = `🔔 Booking Status Update\n\n` +
+            `Hi ${booking.name},\n` +
+            `Your ride (Booking ID: ${booking.booking_id}) status has been updated to: ${booking.status}.\n\n` +
+            `_Powered by Jemx Automation System_`;
         }
 
         try {

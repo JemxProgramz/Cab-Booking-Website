@@ -1,4 +1,4 @@
-# Ram Cabs & Travels
+# Ram Autos & Cabs
 
 <div align="center">
   <img src="https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB" alt="React" />
@@ -15,7 +15,7 @@ A comprehensive, full-stack transportation management platform engineered to del
 
 ## Overview
 
-Ram Cabs & Travels represents a modern approach to local and outstation transit. Built with an emphasis on performance, usability, and scalability, this application bridges the gap between passengers and reliable transportation. From a frictionless booking funnel to a comprehensive administrative dashboard and an intelligent automated WhatsApp bot, the platform is tailored to streamline the entire lifecycle of a ride.
+Ram Autos & Cabs represents a modern approach to local and outstation transit. Built with an emphasis on performance, usability, and scalability, this application bridges the gap between passengers and reliable transportation. From a frictionless booking funnel to a comprehensive administrative dashboard and an intelligent automated WhatsApp bot, the platform is tailored to streamline the entire lifecycle of a ride.
 
 ## Core Capabilities
 
@@ -103,4 +103,4 @@ npm run start
 
 ## Licensing
 
-Proprietary Software. All rights reserved by Ram Cabs & Travels. Unauthorized copying, modification, or distribution is strictly prohibited.
+Proprietary Software. All rights reserved by Ram Autos & Cabs. Unauthorized copying, modification, or distribution is strictly prohibited.

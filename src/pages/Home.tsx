@@ -37,7 +37,7 @@ export default function Home() {
                 </span>
               </h1>
               <p className="text-lg md:text-xl text-gray-600 mb-8 leading-relaxed">
-                Book your ride in seconds. Safe, affordable, and available whenever you need. Experience premium travel with Ram Cabs & Travels.
+                Book your ride in seconds. Safe, affordable, and available whenever you need. Experience premium travel with Ram Autos & Cabs.
               </p>
               <div className="flex flex-wrap justify-center gap-4">
                 <Link to="/book" className="bg-green-600 text-white px-8 py-4 rounded-full font-medium shadow-lg shadow-green-600/30 hover:bg-green-700 transition-colors flex items-center gap-3 text-lg">
@@ -143,7 +143,7 @@ export default function Home() {
             viewport={{ once: true }}
             className="md:hidden text-center mb-8"
           >
-            <h2 className="text-3xl font-bold text-gray-900">About Ram Cabs & Travels</h2>
+            <h2 className="text-3xl font-bold text-gray-900">About Ram Autos & Cabs</h2>
           </motion.div>
           <div className="flex flex-col-reverse md:grid md:grid-cols-2 gap-12 items-center">
             <motion.div
@@ -152,9 +152,9 @@ export default function Home() {
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
             >
-              <h2 className="text-3xl font-bold text-gray-900 mb-6 hidden md:block">About Ram Cabs & Travels</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-6 hidden md:block">About Ram Autos & Cabs</h2>
               <p className="text-gray-600 mb-4 leading-relaxed">
-                Ram Cabs & Travels started with a simple vision: to make everyday travel seamless, secure, and stress-free for everyone. Over the years, we have grown from a small local taxi service into a trusted travel partner for thousands of commuters.
+                Ram Autos & Cabs started with a simple vision: to make everyday travel seamless, secure, and stress-free for everyone. Over the years, we have grown from a small local taxi service into a trusted travel partner for thousands of commuters.
               </p>
               <p className="text-gray-600 leading-relaxed">
                 Whether it's a quick trip to the market, a daily office commute, or a long-distance outstation journey, our fleet of well-maintained vehicles and professional drivers ensure you reach your destination comfortably and on time. We take pride in our customer-first approach and our dedication to continuous improvement.
