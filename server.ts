@@ -281,16 +281,18 @@ async function startServer() {
       if (cleanNumber.length === 10) cleanNumber = '91' + cleanNumber;
       const jid = `${cleanNumber}@s.whatsapp.net`;
       
-      const adminMessage = `🤖 *Ram Autos & Cabs Bot - Admin Alert* 🤖\n\n` +
-        `🚨 *NEW BOOKING RECEIVED*\n\n` +
-        `👤 *Customer:* ${newBooking.name}\n` +
-        `📞 *Phone:* ${newBooking.phone}\n` +
-        `🆔 *Booking ID:* ${newBooking.booking_id}\n` +
-        `📅 *Date:* ${newBooking.booking_date}\n` +
-        `⏰ *Time:* ${newBooking.booking_time}\n` +
-        `📍 *Pickup:* ${newBooking.pickup_location || 'Not provided'}\n` +
-        `📌 *Status:* ${newBooking.status}\n\n` +
-        `Please choose an action below or reply with:\n` +
+      const adminMessage = `📋 *New Booking Request* | Ram Autos & Cabs\n\n` +
+        `Customer Details:\n` +
+        `👤 Name: ${newBooking.name}\n` +
+        `📞 Phone: ${newBooking.phone}\n\n` +
+        `Trip Details:\n` +
+        `🆔 Booking ID: ${newBooking.booking_id}\n` +
+        `📅 Date: ${newBooking.booking_date}\n` +
+        `⏰ Time: ${newBooking.booking_time}\n` +
+        `📍 Pickup: ${newBooking.pickup_location || 'Not provided'}\n` +
+        `📌 Status: ${newBooking.status}\n\n` +
+        `Action Required:\n` +
+        `Please approve or decline this request by replying with:\n` +
         `✅ \`/accept ${newBooking.booking_id}\`\n` +
         `❌ \`/decline ${newBooking.booking_id}\``;
 
@@ -373,16 +375,18 @@ async function startServer() {
         console.error("Error checking if number exists on WhatsApp:", err);
       }
       
-      const adminMessage = `🤖 *Ram Autos & Cabs Bot - Admin Alert* 🤖\n\n` +
-        `🚨 *NEW BOOKING RECEIVED*\n\n` +
-        `👤 *Customer:* ${booking.name}\n` +
-        `📞 *Phone:* ${booking.phone}\n` +
-        `🆔 *Booking ID:* ${booking.booking_id}\n` +
-        `📅 *Date:* ${booking.booking_date}\n` +
-        `⏰ *Time:* ${booking.booking_time}\n` +
-        `📍 *Pickup:* ${booking.pickup_location || 'Not provided'}\n` +
-        `📌 *Status:* ${booking.status}\n\n` +
-        `Please choose an action below or reply with:\n` +
+      const adminMessage = `📋 *New Booking Request* | Ram Autos & Cabs\n\n` +
+        `Customer Details:\n` +
+        `👤 Name: ${booking.name}\n` +
+        `📞 Phone: ${booking.phone}\n\n` +
+        `Trip Details:\n` +
+        `🆔 Booking ID: ${booking.booking_id}\n` +
+        `📅 Date: ${booking.booking_date}\n` +
+        `⏰ Time: ${booking.booking_time}\n` +
+        `📍 Pickup: ${booking.pickup_location || 'Not provided'}\n` +
+        `📌 Status: ${booking.status}\n\n` +
+        `Action Required:\n` +
+        `Please approve or decline this request by replying with:\n` +
         `✅ \`/accept ${booking.booking_id}\`\n` +
         `❌ \`/decline ${booking.booking_id}\``;
 
@@ -496,7 +500,8 @@ async function startServer() {
               `Trip Details:\n` +
               `📅 Date: ${booking.booking_date}\n` +
               `⏰ Time: ${booking.booking_time}\n` +
-              `📍 Pickup: ${booking.pickup_location || 'Not provided'}\n\n` +
+              `📍 Pickup: ${booking.pickup_location || 'Not provided'}\n` +
+              `📞 Driver Phone: ${adminNumber || '+91 9342469403'}\n\n` +
               `Our driver will arrive at the scheduled time. Thank you for choosing Ram Autos & Cabs!\n\n` +
               `_Powered by Jemx Automation System_`;
           } else if (booking.status === 'Completed') {
@@ -532,10 +537,11 @@ async function startServer() {
           if (adminClean.length === 10) adminClean = '91' + adminClean;
           const adminJid = `${adminClean}@s.whatsapp.net`;
           
-          let adminStatusMessage = `⚠️ *Booking Status Update* ⚠️\n\n` +
-            `Booking ID: ${booking.booking_id}\n` +
-            `Customer: ${booking.name}\n` +
-            `New Status: *${booking.status}*`;
+          let adminStatusMessage = `🔄 *Status Update* | Ram Autos & Cabs\n\n` +
+            `The following booking has been updated:\n` +
+            `🆔 Booking ID: ${booking.booking_id}\n` +
+            `👤 Customer: ${booking.name}\n` +
+            `📌 New Status: *${booking.status}*`;
 
           try {
             await sock.sendMessage(adminJid, { text: adminStatusMessage });
@@ -585,7 +591,8 @@ async function startServer() {
             `Trip Details:\n` +
             `📅 Date: ${booking.booking_date}\n` +
             `⏰ Time: ${booking.booking_time}\n` +
-            `📍 Pickup: ${booking.pickup_location || 'Not provided'}\n\n` +
+            `📍 Pickup: ${booking.pickup_location || 'Not provided'}\n` +
+            `📞 Driver Phone: ${adminNumber || '+91 9342469403'}\n\n` +
             `Our driver will arrive at the scheduled time. Thank you for choosing Ram Autos & Cabs!\n\n` +
             `_Powered by Jemx Automation System_`;
         } else if (booking.status === 'Completed') {
@@ -621,10 +628,11 @@ async function startServer() {
         if (adminClean.length === 10) adminClean = '91' + adminClean;
         const adminJid = `${adminClean}@s.whatsapp.net`;
         
-        let adminStatusMessage = `⚠️ *Booking Status Update* ⚠️\n\n` +
-          `Booking ID: ${booking.booking_id}\n` +
-          `Customer: ${booking.name}\n` +
-          `New Status: *${booking.status}*`;
+        let adminStatusMessage = `🔄 *Status Update* | Ram Autos & Cabs\n\n` +
+          `The following booking has been updated:\n` +
+          `🆔 Booking ID: ${booking.booking_id}\n` +
+          `👤 Customer: ${booking.name}\n` +
+          `📌 New Status: *${booking.status}*`;
 
         try {
           await sock.sendMessage(adminJid, { text: adminStatusMessage });
