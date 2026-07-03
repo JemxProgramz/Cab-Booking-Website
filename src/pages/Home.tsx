@@ -1,7 +1,8 @@
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { MapPin, Clock, Phone, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Clock, Phone, PhoneCall, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import ServiceAvailability from '../components/ServiceAvailability';
 
 export default function Home() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -34,6 +35,9 @@ export default function Home() {
                 எங்களது சேவை! <br />
                 <span className="text-green-600 text-2xl md:text-3xl lg:text-4xl block mt-4 font-bold leading-snug">
                   என்றென்றும் மக்கள் சேவையில்<br />மங்கை ராம் ஆட்டோ
+                </span>
+                <span className="text-gray-700 text-xl md:text-2xl block mt-2 font-semibold">
+                  24 / 7 Services Available
                 </span>
               </h1>
               <p className="text-lg md:text-xl text-gray-600 mb-8 leading-relaxed">
@@ -109,6 +113,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Service Availability Section */}
+      <ServiceAvailability />
+
       {/* Services/Features Section */}
       <section id="services" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -116,11 +123,12 @@ export default function Home() {
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose Us</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">We provide premium transportation services with a focus on safety, comfort, and reliability.</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               { title: 'Fast & Reliable', desc: 'Quick response times and punctual drivers you can always count on.', icon: <Clock size={24} className="text-green-600" /> },
               { title: 'Safe Travel', desc: 'All our vehicles are regularly inspected and driven by verified professionals.', icon: <CheckCircle2 size={24} className="text-green-600" /> },
-              { title: 'Affordable Pricing', desc: 'Transparent pricing with no hidden charges. Premium service at competitive rates.', icon: <MapPin size={24} className="text-green-600" /> }
+              { title: 'Affordable Pricing', desc: 'Transparent pricing with no hidden charges. Premium service at competitive rates.', icon: <MapPin size={24} className="text-green-600" /> },
+              { title: '24/7 Service', desc: 'Available round the clock for all your transportation needs, day or night.', icon: <PhoneCall size={24} className="text-green-600" /> }
             ].map((feature, i) => (
               <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
                 <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mb-4">
@@ -177,7 +185,9 @@ export default function Home() {
               <h3 className="text-2xl font-bold text-gray-900">Mr. Ram</h3>
               <p className="text-green-600 font-medium mb-4">Founder & Owner</p>
               <p className="text-gray-600 max-w-sm">
-                "My mission is to ensure every passenger feels safe and comfortable, treating every journey as if I were driving my own family."
+                "மகிழ்வித்து மகிழ்!<br />
+                சேவை செய்து வாழ்வோம், துன்பம் துடைத்து அன்பைத் தந்து மகிழ்வோம்!<br />
+                வாழ்க வளமுடன்!"
               </p>
             </motion.div>
           </div>

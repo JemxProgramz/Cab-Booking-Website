@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys";
+import { makeWASocket, useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import qrcode from "qrcode-terminal";
 import pino from "pino";
@@ -11,7 +11,29 @@ import fs from "fs";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import xss from "xss";
+
 import { z } from "zod";
+const logger = pino({
+  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+});
+
+const envSchema = z.object({
+  VITE_SUPABASE_URL: z.string().url("VITE_SUPABASE_URL must be a valid URL"),
+  VITE_SUPABASE_ANON_KEY: z.string().min(1, "VITE_SUPABASE_ANON_KEY is required"),
+  VITE_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
+  WHATSAPP_ADMIN_NUMBER: z.string().optional(),
+});
+
+let envVars;
+try {
+  envVars = envSchema.parse(process.env);
+} catch (err) {
+  logger.error(err.errors, "Environment Validation Error:");
+  process.exit(1);
+}
+
+
+
 
 // Initialize environment variables
 dotenv.config();
@@ -30,6 +52,8 @@ const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', 
 let sock: any = null;
 let qrCodeValue: string | null = null;
 let isConnected = false;
+const SESSION_DIR = 'auth_info_baileys';
+let reconnectAttempts = 0;
 
 /**
  * Initializes and manages the WhatsApp Web connection using Baileys.
@@ -37,7 +61,7 @@ let isConnected = false;
  */
 async function connectToWhatsApp() {
   try {
-    const { state, saveCreds } = await useMultiFileAuthState("auth_info_baileys");
+    const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
     
     sock = makeWASocket({
       auth: state,
@@ -54,33 +78,61 @@ async function connectToWhatsApp() {
     }
     
     if (connection === "close") {
-      const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       isConnected = false;
       qrCodeValue = null;
       
-      const isQrTimeout = lastDisconnect?.error?.message === "QR refs attempts ended";
+      const boom = lastDisconnect?.error as Boom;
+      const statusCode = boom?.output?.statusCode;
+      const errorMessage = boom?.message || "Unknown error";
+      const isQrTimeout = errorMessage === "QR refs attempts ended";
       
-      if (isQrTimeout) {
-        console.log("WhatsApp QR Code scan timed out. You can generate a new one from the Admin Settings.");
-      } else if (statusCode === 428) { // Precondition Required
-        console.log("WhatsApp connection requires a new session. Please generate a new QR code from Admin Settings.");
-      } else if (statusCode === 515) { 
-        console.log("WhatsApp Stream Errored (restart required). Wiping session and waiting for manual reconnect...");
-        if (fs.existsSync("auth_info_baileys")) {
-          fs.rmSync("auth_info_baileys", { recursive: true, force: true });
+      let shouldReconnect = true;
+      let sessionDeleted = false;
+
+      // Map DisconnectReason
+      let reasonName = "Unknown";
+      if (statusCode === DisconnectReason.loggedOut) reasonName = "loggedOut";
+      else if (statusCode === DisconnectReason.timedOut) reasonName = "timedOut";
+      else if (statusCode === DisconnectReason.connectionClosed) reasonName = "connectionClosed";
+      else if (statusCode === DisconnectReason.connectionLost) reasonName = "connectionLost";
+      else if (statusCode === DisconnectReason.connectionReplaced) reasonName = "connectionReplaced";
+      else if (statusCode === DisconnectReason.restartRequired) reasonName = "restartRequired";
+      else if (statusCode === DisconnectReason.badSession) reasonName = "badSession";
+      else if (statusCode === DisconnectReason.multideviceMismatch) reasonName = "multideviceMismatch";
+      
+      if (statusCode === DisconnectReason.loggedOut) {
+        shouldReconnect = false;
+        if (fs.existsSync(SESSION_DIR)) {
+          fs.rmSync(SESSION_DIR, { recursive: true, force: true });
+          sessionDeleted = true;
         }
-      } else {
-        console.log("Connection closed due to ", lastDisconnect?.error?.message || lastDisconnect?.error, ", reconnecting ", shouldReconnect);
+      } else if (isQrTimeout) {
+        shouldReconnect = false;
       }
       
-      if (shouldReconnect && !isQrTimeout && statusCode !== 428 && statusCode !== 515) {
-        setTimeout(connectToWhatsApp, 5000);
+      logger.info(
+        `\n[WhatsApp]\nConnection: close\nReason: ${reasonName}\nStatus Code: ${statusCode}\nError: ${errorMessage}\nAction: ${shouldReconnect ? 'Reconnecting...' : 'Not reconnecting'}\nSession Deleted: ${sessionDeleted ? 'Yes' : 'No'}\n`
+      );
+      
+      if (shouldReconnect) {
+        reconnectAttempts++;
+        if (reconnectAttempts <= 10) {
+          let delayMs = 10000;
+          if (reconnectAttempts === 1) delayMs = 2000;
+          else if (reconnectAttempts === 2) delayMs = 5000;
+          else delayMs = 10000;
+          
+          logger.info(`Reconnecting in ${delayMs/1000}s (Attempt ${reconnectAttempts}/10)`);
+          setTimeout(connectToWhatsApp, delayMs);
+        } else {
+           logger.error("Maximum reconnect attempts reached. Giving up.");
+        }
       }
     } else if (connection === "open") {
-      console.log("Opened connection to WhatsApp");
+      logger.info("Opened connection to WhatsApp");
       isConnected = true;
       qrCodeValue = null;
+      reconnectAttempts = 0; // Reset attempts on successful connection
     }
   });
 
@@ -148,32 +200,43 @@ async function connectToWhatsApp() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ booking: { ...bookingData, status: newStatus } })
-            }).catch(err => console.error("Failed to call local notify API", err));
+            }).catch(err => logger.error(err, "Failed to call local notify API"));
           } finally {
             await dbClient.end();
           }
 
         } catch (error) {
-          console.error("WhatsApp Command Error:", error);
+          logger.error(error, "WhatsApp Command Error:");
         }
       }
     }
   });
   } catch (error) {
-    console.error("Failed to initialize WhatsApp connection:", error);
-    setTimeout(connectToWhatsApp, 5000);
+    logger.error(error, "Failed to initialize WhatsApp connection:");
+    // If initialization fails (e.g. corrupted session), clear the directory to recover gracefully
+    try {
+      if (fs.existsSync(SESSION_DIR)) {
+        fs.rmSync(SESSION_DIR, { recursive: true, force: true });
+        logger.info("Cleared corrupted WhatsApp session directory");
+      }
+    } catch(e) {
+       logger.error(e, "Failed to clear session dir");
+    }
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 60000);
+    reconnectAttempts++;
+    setTimeout(connectToWhatsApp, delay);
   }
 }
 
 // Don't await connection here to let server start
-connectToWhatsApp().catch(console.error);
+connectToWhatsApp().catch(logger.error);
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error(reason, 'Unhandled Rejection:');
 });
 
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+  logger.error(error, 'Uncaught Exception:');
 });
 
 /**
@@ -186,11 +249,27 @@ async function startServer() {
   const PORT = 3000;
 
   // Security headers
-  app.use(helmet({
-    contentSecurityPolicy: false, // Disabling CSP for development and Vite HMR
+    app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
   }));
 
-  app.use(cors());
+
+  const allowedOrigins = [
+    process.env.APP_URL,
+    "http://localhost:3000"
+  ].filter(Boolean);
+
+  app.use(cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    }
+  }));
+
   app.use(express.json());
 
   // Rate Limiting
@@ -200,23 +279,8 @@ async function startServer() {
     message: { error: "Too many requests from this IP, please try again after 15 minutes." },
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => req.path === '/whatsapp-status',
-    keyGenerator: (req) => {
-      // Use Forwarded header if present, otherwise default to req.ip
-      const forwarded = req.headers['forwarded'];
-      if (forwarded) {
-        // e.g. "for=192.0.2.60;proto=http;by=203.0.113.43"
-        const match = forwarded.match(/for="?([^;"]+)"?/);
-        if (match && match[1]) {
-          return match[1];
-        }
-      }
-      const xForwardedFor = req.headers['x-forwarded-for'];
-      if (xForwardedFor) {
-        return (typeof xForwardedFor === 'string' ? xForwardedFor.split(',')[0] : xForwardedFor[0]).trim();
-      }
-      return req.ip || 'unknown';
-    }
+    skip: (req) => req.path === '/api/whatsapp-status',
+    // Trust proxy is set above, so express-rate-limit will automatically use the correct client IP.
   });
 
   app.use("/api/", apiLimiter);
@@ -234,6 +298,58 @@ async function startServer() {
   });
 
   // API Routes
+  
+  app.post("/api/log-auth-error", (req, res) => {
+    try {
+      const { email, error } = req.body;
+      if (email && error) {
+        // Log securely without logging the raw password or sensitive session data
+        const redactedEmail = email.replace(/(.{2})(.*)(?=@)/, (gp1, gp2, gp3) => { 
+          return gp2 + '*'.repeat(gp3.length);
+        });
+        logger.warn(`[Auth Error] Failed login attempt for ${redactedEmail}: ${error}`);
+      }
+      res.json({ success: true });
+    } catch (err) {
+      logger.error(err, "Error in auth logging endpoint:");
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  
+  app.get("/api/search-booking", async (req, res) => {
+    try {
+      const { type, value } = req.query;
+      if (!type || !value) {
+        return res.status(400).json({ error: "Missing search parameters" });
+      }
+
+      const dbClient = new pg.Client({
+        connectionString: dbConnectionString,
+        ssl: { rejectUnauthorized: false }
+      });
+      await dbClient.connect();
+
+      let result;
+      if (type === 'id') {
+        result = await dbClient.query('SELECT * FROM public.bookings WHERE booking_id = $1 LIMIT 1', [value]);
+      } else {
+        result = await dbClient.query('SELECT * FROM public.bookings WHERE phone = $1 ORDER BY created_at DESC LIMIT 1', [value]);
+      }
+
+      await dbClient.end();
+
+      if (result.rows.length > 0) {
+        res.json({ booking: result.rows[0] });
+      } else {
+        res.json({ booking: null });
+      }
+    } catch (err) {
+      logger.error(err, "Search error:");
+      res.status(500).json({ error: "Failed to search booking" });
+    }
+  });
+
   app.post("/api/create-booking", async (req, res) => {
     try {
       const parsed = z.object({
@@ -306,7 +422,7 @@ async function startServer() {
         footer: 'Ram Autos & Cabs',
         buttons: buttons,
         headerType: 1
-      }).catch((e: any) => console.error(e));
+      }).catch((e: any) => logger.error(e));
 
       if (newBooking.phone) {
         let customerClean = newBooking.phone.replace(/\D/g, '');
@@ -324,12 +440,12 @@ async function startServer() {
           `Please give us a few moments to find the nearest available driver for you. We will message you back shortly with their contact details!\n\n` +
           `_Powered by Jemx Automation System_`;
 
-        await sock.sendMessage(customerJid, { text: customerMessage }).catch((e: any) => console.error(e));
+        await sock.sendMessage(customerJid, { text: customerMessage }).catch((e: any) => logger.error(e));
       }
 
       res.json({ success: true, booking: newBooking, message: "Booking created and WhatsApp notifications sent" });
     } catch (error: any) {
-      console.error("Error creating booking:", error);
+      logger.error(error, "Error creating booking:");
       res.status(500).json({ error: error.message });
     }
   });
@@ -369,10 +485,10 @@ async function startServer() {
       try {
         const [result] = await sock.onWhatsApp(jid);
         if (!result?.exists) {
-          console.warn(`WhatsApp number ${cleanNumber} does not exist on WhatsApp.`);
+          logger.warn(`WhatsApp number ${cleanNumber} does not exist on WhatsApp.`);
         }
       } catch (err) {
-        console.error("Error checking if number exists on WhatsApp:", err);
+        logger.error(err, "Error checking if number exists on WhatsApp:");
       }
       
       const adminMessage = `📋 *New Booking Request* | Ram Autos & Cabs\n\n` +
@@ -424,13 +540,13 @@ async function startServer() {
         try {
           await sock.sendMessage(customerJid, { text: customerMessage });
         } catch (err) {
-          console.error("Error sending customer WhatsApp notification:", err);
+          logger.error(err, "Error sending customer WhatsApp notification:");
         }
       }
 
       res.json({ success: true, message: "WhatsApp notifications sent" });
     } catch (error: any) {
-      console.error("Error sending WhatsApp notification:", error);
+      logger.error(error, "Error sending WhatsApp notification:");
       res.status(500).json({ error: error.message });
     }
   });
@@ -526,7 +642,7 @@ async function startServer() {
           try {
             await sock.sendMessage(customerJid, { text: statusMessage });
           } catch (err) {
-            console.error("Error sending customer status notification:", err);
+            logger.error(err, "Error sending customer status notification:");
           }
         }
 
@@ -546,14 +662,14 @@ async function startServer() {
           try {
             await sock.sendMessage(adminJid, { text: adminStatusMessage });
           } catch (err) {
-            console.error("Error sending admin status notification:", err);
+            logger.error(err, "Error sending admin status notification:");
           }
         }
       }
 
       res.json({ success: true, booking });
     } catch (error: any) {
-      console.error("Error updating booking status:", error);
+      logger.error(error, "Error updating booking status:");
       res.status(500).json({ error: error.message });
     }
   });
@@ -617,7 +733,7 @@ async function startServer() {
         try {
           await sock.sendMessage(customerJid, { text: statusMessage });
         } catch (err) {
-          console.error("Error sending customer status notification:", err);
+          logger.error(err, "Error sending customer status notification:");
         }
       }
 
@@ -637,13 +753,13 @@ async function startServer() {
         try {
           await sock.sendMessage(adminJid, { text: adminStatusMessage });
         } catch (err) {
-          console.error("Error sending admin status notification:", err);
+          logger.error(err, "Error sending admin status notification:");
         }
       }
 
       res.json({ success: true, message: "Status notification sent to customer and admin" });
     } catch (error: any) {
-      console.error("Error sending status notification:", error);
+      logger.error(error, "Error sending status notification:");
       res.status(500).json({ error: error.message });
     }
   });
@@ -666,17 +782,35 @@ async function startServer() {
   });
 
   app.post("/api/whatsapp-reconnect", requireAdmin, (req, res) => {
-    if (!isConnected) {
-      if (fs.existsSync("auth_info_baileys")) {
-        fs.rmSync("auth_info_baileys", { recursive: true, force: true });
+    if (sock) {
+      try {
+        sock.end(undefined);
+      } catch (e) {
+        logger.error(e, "Error ending existing socket");
       }
-      connectToWhatsApp().catch(console.error);
+      sock = null;
     }
+    
+    qrCodeValue = null;
+    isConnected = false;
+
+    // Reconnect should just restart the socket, not wipe the session.
+    
+    connectToWhatsApp().catch(logger.error);
+    
     res.json({ success: true });
   });
 
+
+  // Global Error Handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    logger.error(err, "Unhandled API Error:");
+    res.status(500).json({ success: false, error: "Internal Server Error" });
+  });
+
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  const isProduction = process.env.NODE_ENV === "production" || fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'));
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { 
         middlewareMode: true,
@@ -689,13 +823,23 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get('*', async (req, res) => {
+      try {
+        let html = await fs.promises.readFile(path.join(distPath, 'index.html'), 'utf-8');
+        const envScript = `<script>window.ENV = {
+          VITE_SUPABASE_URL: "${process.env.VITE_SUPABASE_URL || ''}",
+          VITE_SUPABASE_ANON_KEY: "${process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''}"
+        };</script>`;
+        html = html.replace('</head>', `${envScript}</head>`);
+        res.send(html);
+      } catch (err) {
+        res.status(500).send('Error loading index.html');
+      }
     });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    logger.info(`Server running on http://localhost:${PORT}`);
   });
 }
 

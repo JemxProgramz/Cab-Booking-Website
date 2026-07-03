@@ -21,7 +21,11 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+    // @ts-ignore
+    const hasUrl = window.ENV?.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
+    // @ts-ignore
+    const hasKey = window.ENV?.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!hasUrl || !hasKey) {
       toast.error('Supabase configuration is missing. Please check your environment variables.');
       setLoading(false);
       return;
@@ -38,7 +42,19 @@ export default function Login() {
       toast.success('Successfully logged in');
       navigate('/admin/dashboard');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to login');
+      if (error.message === 'Failed to fetch') {
+        toast.error('Network error: Unable to reach Supabase. Check if VITE_SUPABASE_URL is correct and accessible.');
+      } else {
+        toast.error(error.message || 'Failed to login');
+      }
+      // Securely log the authentication error to the backend
+      try {
+        fetch('/api/log-auth-error', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, error: error.message || 'Unknown error' })
+        }).catch(() => {});
+      } catch (e) {}
     } finally {
       setLoading(false);
     }
@@ -80,7 +96,7 @@ export default function Login() {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-gray-400" />
                 </div>
-                <input
+                <input aria-label="Email"
                   id="email"
                   name="email"
                   type="email"
@@ -102,7 +118,7 @@ export default function Login() {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
-                <input
+                <input aria-label="Password"
                   id="password"
                   name="password"
                   type="password"

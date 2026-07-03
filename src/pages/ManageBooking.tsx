@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, XCircle, ChevronLeft, MapPin, Calendar, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -15,7 +15,7 @@ export default function ManageBooking() {
   const [error, setError] = useState('');
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -29,20 +29,9 @@ export default function ManageBooking() {
     }
 
     try {
-      let query = supabase.from('bookings').select('*');
-      
-      if (searchType === 'id') {
-        query = query.eq('booking_id', searchValue);
-      } else {
-        query = query.eq('phone', searchValue);
-      }
-
-      const { data, error: fetchError } = await query.order('created_at', { ascending: false }).limit(1);
-
-      if (fetchError) throw fetchError;
-
-      if (data && data.length > 0) {
-        setBooking(data[0]);
+      const res = await fetchApi(`/api/search-booking?type=${searchType}&value=${encodeURIComponent(searchValue)}`);
+      if (res.booking) {
+        setBooking(res.booking);
       } else {
         setError('No booking found with the provided details.');
       }
@@ -52,9 +41,9 @@ export default function ManageBooking() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchType, searchValue]);
 
-  const handleCancelBooking = async () => {
+  const handleCancelBooking = useCallback(async () => {
     if (!booking) return;
 
     setLoading(true);
@@ -85,7 +74,7 @@ export default function ManageBooking() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [booking]);
 
   return (
     <div className="min-h-[calc(100vh-200px)] bg-gray-50 flex items-center justify-center p-4">
@@ -124,7 +113,7 @@ export default function ManageBooking() {
 
             <div className="relative">
               <input
-                type="text"
+                aria-label="Search Value" type="text"
                 required
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}

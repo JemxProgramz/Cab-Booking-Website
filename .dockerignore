@@ -1,0 +1,10 @@
+node_modules
+.env
+.env.*
+.git
+.gitignore
+*.md
+Dockerfile
+.dockerignore
+dist
+auth_info_baileys

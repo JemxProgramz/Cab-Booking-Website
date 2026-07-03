@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Booking, BookingStatus } from '../../types';
 import { format, isToday, isTomorrow, isThisWeek } from 'date-fns';
@@ -32,7 +32,7 @@ export default function AdminBookings() {
     };
   }, []);
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     if (!isSupabaseConfigured) {
       setLoading(false);
       return;
@@ -50,9 +50,9 @@ export default function AdminBookings() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!isSupabaseConfigured) {
       toast.error('Supabase configuration is missing. Cannot delete booking.');
       setConfirmDeleteId(null);
@@ -66,9 +66,9 @@ export default function AdminBookings() {
     } catch (error) {
       toast.error('Failed to delete booking');
     }
-  };
+  }, [fetchBookings]);
 
-  const handleUpdateStatus = async (id: string, status: BookingStatus) => {
+  const handleUpdateStatus = useCallback(async (id: string, status: BookingStatus) => {
     try {
       const updatedBooking = bookings.find(b => b.id === id);
       if (!updatedBooking) throw new Error("Booking not found");
@@ -99,9 +99,9 @@ export default function AdminBookings() {
     } catch (error) {
       toast.error('Failed to update status');
     }
-  };
+  }, [bookings]);
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
+  const handleSaveEdit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBooking) return;
     
@@ -131,7 +131,7 @@ export default function AdminBookings() {
     } catch (error) {
       toast.error('Failed to update booking');
     }
-  };
+  }, [editingBooking, fetchBookings]);
 
   const getStatusBadge = (status: BookingStatus) => {
     const styles = {

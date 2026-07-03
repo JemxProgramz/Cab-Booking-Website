@@ -8,32 +8,43 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (user && !error) {
-          setSession(session);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: { user }, error } = await supabase.auth.getUser();
+          if (user && !error) {
+            setSession(session);
+          } else {
+            setSession(null);
+          }
         } else {
           setSession(null);
         }
-      } else {
+      } catch (error) {
+        console.error("Auth check failed:", error);
         setSession(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     checkAuth();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setSession(session);
+      try {
+        if (session) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            setSession(session);
+          } else {
+            setSession(null);
+          }
         } else {
           setSession(null);
         }
-      } else {
+      } catch (error) {
+        console.error("Auth state change failed:", error);
         setSession(null);
       }
     });
