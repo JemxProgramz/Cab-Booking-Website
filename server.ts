@@ -17,31 +17,31 @@ const logger = pino({
   level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
 });
 
+// Initialize environment variables
+dotenv.config();
+
 const envSchema = z.object({
   VITE_SUPABASE_URL: z.string().url("VITE_SUPABASE_URL must be a valid URL"),
   VITE_SUPABASE_ANON_KEY: z.string().min(1, "VITE_SUPABASE_ANON_KEY is required"),
   VITE_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   WHATSAPP_ADMIN_NUMBER: z.string().optional(),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required to connect to the database"),
 });
 
 let envVars;
+let isEnvValid = true;
 try {
   envVars = envSchema.parse(process.env);
-} catch (err) {
-  logger.error(err.errors, "Environment Validation Error:");
-  process.exit(1);
+} catch (err: any) {
+  logger.error(err.errors, "Environment Validation Error: Missing or invalid environment variables. The server will start in IDLE mode with degraded functionality.");
+  isEnvValid = false;
 }
 
-
-
-
-// Initialize environment variables
-dotenv.config();
 import { createClient } from '@supabase/supabase-js';
 import pg from 'pg';
 
 // Database connection string for PostgreSQL direct queries
-const dbConnectionString = "postgresql://postgres:Auto@@&&CABD@db.bxvfcvszhvrbglvmuwxy.supabase.co:5432/postgres";
+const dbConnectionString = process.env.DATABASE_URL as string;
 
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
@@ -234,7 +234,11 @@ async function connectToWhatsApp() {
 }
 
 // Don't await connection here to let server start
-connectToWhatsApp().catch(logger.error);
+if (isEnvValid) {
+  connectToWhatsApp().catch(logger.error);
+} else {
+  logger.warn("Skipping WhatsApp connection due to invalid environment variables.");
+}
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error(reason, 'Unhandled Rejection:');
@@ -622,7 +626,7 @@ async function startServer() {
               `📅 Date: ${booking.booking_date}\n` +
               `⏰ Time: ${booking.booking_time}\n` +
               `📍 Pickup: ${booking.pickup_location || 'Not provided'}\n` +
-              `📞 Driver Phone: ${adminNumber || '+91 9342469403'}\n\n` +
+              `📞 Driver Phone: ${adminNumber || process.env.WHATSAPP_ADMIN_NUMBER || 'Not provided'}\n\n` +
               `Our driver will arrive at the scheduled time. Thank you for choosing Ram Autos & Cabs!\n\n` +
               `_Powered by Jemx Automation System_`;
           } else if (booking.status === 'Completed') {
@@ -713,7 +717,7 @@ async function startServer() {
             `📅 Date: ${booking.booking_date}\n` +
             `⏰ Time: ${booking.booking_time}\n` +
             `📍 Pickup: ${booking.pickup_location || 'Not provided'}\n` +
-            `📞 Driver Phone: ${adminNumber || '+91 9342469403'}\n\n` +
+            `📞 Driver Phone: ${adminNumber || process.env.WHATSAPP_ADMIN_NUMBER || 'Not provided'}\n\n` +
             `Our driver will arrive at the scheduled time. Thank you for choosing Ram Autos & Cabs!\n\n` +
             `_Powered by Jemx Automation System_`;
         } else if (booking.status === 'Completed') {
