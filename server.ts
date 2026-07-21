@@ -42,6 +42,11 @@ import pg from 'pg';
 
 // Database connection string for PostgreSQL direct queries
 const dbConnectionString = process.env.DATABASE_URL as string;
+const dbPool = new pg.Pool({
+  connectionString: dbConnectionString,
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 5000,
+});
 
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
@@ -54,6 +59,21 @@ let qrCodeValue: string | null = null;
 let isConnected = false;
 const SESSION_DIR = 'auth_info_baileys';
 let reconnectAttempts = 0;
+
+/**
+ * Sends a WhatsApp message with a timeout.
+ */
+const sendWhatsAppMessageWithTimeout = async (jid: string, content: any, timeoutMs = 5000) => {
+  if (!sock) return;
+  try {
+    await Promise.race([
+      sock.sendMessage(jid, content),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("WhatsApp send message timeout")), timeoutMs))
+    ]);
+  } catch (error) {
+    logger.error(error, `Error sending WhatsApp message to ${jid}:`);
+  }
+};
 
 /**
  * Initializes and manages the WhatsApp Web connection using Baileys.
@@ -165,32 +185,30 @@ async function connectToWhatsApp() {
       if (command === "/accept" || command === "/decline") {
         const bookingId = parts[1];
         if (!bookingId) {
-          await sock.sendMessage(msg.key.remoteJid, { text: "Please provide a booking ID. Example: /accept BK-12345" });
+          await sendWhatsAppMessageWithTimeout(msg.key.remoteJid, { text: "Please provide a booking ID. Example: /accept BK-12345" });
           continue;
         }
 
         const newStatus = command === "/accept" ? "Confirmed" : "Cancelled";
 
         try {
-          const dbClient = new pg.Client({
-            connectionString: dbConnectionString,
-            ssl: { rejectUnauthorized: false }
-          });
-          await dbClient.connect();
+          const dbClient = await dbPool.connect();
+
+          
 
           try {
             // Verify if the booking exists
             const res = await dbClient.query('SELECT * FROM public.bookings WHERE booking_id = $1', [bookingId]);
 
             if (res.rows.length === 0) {
-              await sock.sendMessage(msg.key.remoteJid, { text: `Booking ID ${bookingId} not found.` });
+              await sendWhatsAppMessageWithTimeout(msg.key.remoteJid, { text: `Booking ID ${bookingId} not found.` });
               continue;
             }
 
             const bookingData = res.rows[0];
 
             if (bookingData.status !== "Pending") {
-              await sock.sendMessage(msg.key.remoteJid, { text: `Booking ${bookingId} is already ${bookingData.status}.` });
+              await sendWhatsAppMessageWithTimeout(msg.key.remoteJid, { text: `Booking ${bookingId} is already ${bookingData.status}.` });
               continue;
             }
 
@@ -198,7 +216,7 @@ async function connectToWhatsApp() {
             await dbClient.query('UPDATE public.bookings SET status = $1, updated_at = $2 WHERE id = $3', [newStatus, new Date().toISOString(), bookingData.id]);
 
             // Notify Admin
-            await sock.sendMessage(msg.key.remoteJid, { text: `✅ Successfully marked booking ${bookingId} as ${newStatus}.` });
+            await sendWhatsAppMessageWithTimeout(msg.key.remoteJid, { text: `✅ Successfully marked booking ${bookingId} as ${newStatus}.` });
 
             // Notify Customer using local API
             fetch('http://localhost:3000/api/notify-status', {
@@ -207,7 +225,7 @@ async function connectToWhatsApp() {
               body: JSON.stringify({ booking: { ...bookingData, status: newStatus } })
             }).catch(err => logger.error(err, "Failed to call local notify API"));
           } finally {
-            await dbClient.end();
+            dbClient.release();
           }
 
         } catch (error) {
@@ -333,11 +351,9 @@ async function startServer() {
         return res.status(400).json({ error: "Missing search parameters" });
       }
 
-      const dbClient = new pg.Client({
-        connectionString: dbConnectionString,
-        ssl: { rejectUnauthorized: false }
-      });
-      await dbClient.connect();
+      const dbClient = await dbPool.connect();
+
+      
 
       let result;
       if (type === 'id') {
@@ -346,7 +362,7 @@ async function startServer() {
         result = await dbClient.query('SELECT * FROM public.bookings WHERE phone = $1 ORDER BY created_at DESC LIMIT 1', [value]);
       }
 
-      await dbClient.end();
+      dbClient.release();
 
       if (result.rows.length > 0) {
         res.json({ booking: result.rows[0] });
@@ -373,11 +389,9 @@ async function startServer() {
       const { booking, adminNumber } = parsed.data;
 
       // Insert into database
-      const dbClient = new pg.Client({
-        connectionString: dbConnectionString,
-        ssl: { rejectUnauthorized: false }
-      });
-      await dbClient.connect();
+      const dbClient = await dbPool.connect();
+
+      
 
       let newBooking;
       try {
@@ -388,71 +402,73 @@ async function startServer() {
         );
         newBooking = result.rows[0];
       } finally {
-        await dbClient.end();
+        dbClient.release();
       }
 
-      // Proceed to notify
-      const targetNumber = adminNumber || process.env.WHATSAPP_ADMIN_NUMBER;
-      
-      if (!targetNumber) {
-        return res.json({ success: true, booking: newBooking, message: "Booking created, but WhatsApp admin number not configured" });
-      }
+      // Proceed to notify (Fire and forget)
+      res.json({ success: true, booking: newBooking, message: "Booking created. WhatsApp notifications will be sent in the background." });
 
-      if (!isConnected || !sock) {
-        return res.json({ success: true, booking: newBooking, message: "Booking created, but WhatsApp service not connected" });
-      }
+      (async () => {
+        try {
+          const targetNumber = adminNumber || process.env.WHATSAPP_ADMIN_NUMBER;
+          
+          if (!targetNumber || !isConnected || !sock) {
+            return;
+          }
 
-      let cleanNumber = targetNumber.replace(/\D/g, '');
-      if (cleanNumber.length === 10) cleanNumber = '91' + cleanNumber;
-      const jid = `${cleanNumber}@s.whatsapp.net`;
-      
-      const adminMessage = `📋 *New Booking Request* | Ram Autos & Cabs\n\n` +
-        `Customer Details:\n` +
-        `👤 Name: ${newBooking.name}\n` +
-        `📞 Phone: ${newBooking.phone}\n\n` +
-        `Trip Details:\n` +
-        `🆔 Booking ID: ${newBooking.booking_id}\n` +
-        `📅 Date: ${newBooking.booking_date}\n` +
-        `⏰ Time: ${newBooking.booking_time}\n` +
-        `📍 Pickup: ${newBooking.pickup_location || 'Not provided'}\n` +
-        `📌 Status: ${newBooking.status}\n\n` +
-        `Action Required:\n` +
-        `Please approve or decline this request by replying with:\n` +
-        `✅ \`/accept ${newBooking.booking_id}\`\n` +
-        `❌ \`/decline ${newBooking.booking_id}\``;
+          let cleanNumber = targetNumber.replace(/\D/g, '');
+          if (cleanNumber.length === 10) cleanNumber = '91' + cleanNumber;
+          const jid = `${cleanNumber}@s.whatsapp.net`;
+          
+          const adminMessage = `📋 *New Booking Request* | Ram Autos & Cabs\n\n` +
+            `Customer Details:\n` +
+            `👤 Name: ${newBooking.name}\n` +
+            `📞 Phone: ${newBooking.phone}\n\n` +
+            `Trip Details:\n` +
+            `🆔 Booking ID: ${newBooking.booking_id}\n` +
+            `📅 Date: ${newBooking.booking_date}\n` +
+            `⏰ Time: ${newBooking.booking_time}\n` +
+            `📍 Pickup: ${newBooking.pickup_location || 'Not provided'}\n` +
+            `📌 Status: ${newBooking.status}\n\n` +
+            `Action Required:\n` +
+            `Please approve or decline this request by replying with:\n` +
+            `✅ \`/accept ${newBooking.booking_id}\`\n` +
+            `❌ \`/decline ${newBooking.booking_id}\``;
 
-      const buttons = [
-        { buttonId: `/accept ${newBooking.booking_id}`, buttonText: { displayText: '✅ Accept' }, type: 1 },
-        { buttonId: `/decline ${newBooking.booking_id}`, buttonText: { displayText: '❌ Decline' }, type: 1 }
-      ];
+          const buttons = [
+            { buttonId: `/accept ${newBooking.booking_id}`, buttonText: { displayText: '✅ Accept' }, type: 1 },
+            { buttonId: `/decline ${newBooking.booking_id}`, buttonText: { displayText: '❌ Decline' }, type: 1 }
+          ];
 
-      await sock.sendMessage(jid, { 
-        text: adminMessage,
-        footer: 'Ram Autos & Cabs',
-        buttons: buttons,
-        headerType: 1
-      }).catch((e: any) => logger.error(e));
+          await sendWhatsAppMessageWithTimeout(jid, { 
+            text: adminMessage,
+            footer: 'Ram Autos & Cabs',
+            buttons: buttons,
+            headerType: 1
+          });
 
-      if (newBooking.phone) {
-        let customerClean = newBooking.phone.replace(/\D/g, '');
-        if (customerClean.length === 10) customerClean = '91' + customerClean;
-        const customerJid = `${customerClean}@s.whatsapp.net`;
-        
-        const customerMessage = `👋 Welcome to Ram Autos & Cabs!\n\n` +
-          `Hi ${newBooking.name}, thank you for choosing us!\n` +
-          `Your ride request has been successfully received.\n\n` +
-          `Your Trip Details:\n\n` +
-          `🆔Booking ID: ${newBooking.booking_id}\n\n` +
-          `📅Date: ${newBooking.booking_date}\n\n` +
-          `⏰Time: ${newBooking.booking_time}\n\n` +
-          `📍Pickup: ${newBooking.pickup_location || 'Not provided'}\n\n` +
-          `Please give us a few moments to find the nearest available driver for you. We will message you back shortly with their contact details!\n\n` +
-          `_Powered by Jemx Automation System_`;
+          if (newBooking.phone) {
+            let customerClean = newBooking.phone.replace(/\D/g, '');
+            if (customerClean.length === 10) customerClean = '91' + customerClean;
+            const customerJid = `${customerClean}@s.whatsapp.net`;
+            
+            const customerMessage = `👋 Welcome to Ram Autos & Cabs!\n\n` +
+              `Hi ${newBooking.name}, thank you for choosing us!\n` +
+              `Your ride request has been successfully received.\n\n` +
+              `Your Trip Details:\n\n` +
+              `🆔Booking ID: ${newBooking.booking_id}\n\n` +
+              `📅Date: ${newBooking.booking_date}\n\n` +
+              `⏰Time: ${newBooking.booking_time}\n\n` +
+              `📍Pickup: ${newBooking.pickup_location || 'Not provided'}\n\n` +
+              `Please give us a few moments to find the nearest available driver for you. We will message you back shortly with their contact details!\n\n` +
+              `_Powered by Jemx Automation System_`;
 
-        await sock.sendMessage(customerJid, { text: customerMessage }).catch((e: any) => logger.error(e));
-      }
-
-      res.json({ success: true, booking: newBooking, message: "Booking created and WhatsApp notifications sent" });
+            await sendWhatsAppMessageWithTimeout(customerJid, { text: customerMessage });
+          }
+        } catch (e) {
+          logger.error(e, "Background notification error:");
+        }
+      })();
     } catch (error: any) {
       logger.error(error, "Error creating booking:");
       res.status(500).json({ error: error.message });
@@ -520,13 +536,12 @@ async function startServer() {
         { buttonId: `/decline ${booking.booking_id}`, buttonText: { displayText: '❌ Decline' }, type: 1 }
       ];
 
-      await sock.sendMessage(jid, { 
+      await sendWhatsAppMessageWithTimeout(jid, { 
         text: adminMessage,
         footer: 'Ram Autos & Cabs',
         buttons: buttons,
         headerType: 1
       });
-
       // --- Send confirmation to customer ---
       if (booking.phone) {
         let customerClean = booking.phone.replace(/\D/g, '');
@@ -547,7 +562,7 @@ async function startServer() {
           `_Powered by Jemx Automation System_`;
 
         try {
-          await sock.sendMessage(customerJid, { text: customerMessage });
+          await sendWhatsAppMessageWithTimeout(customerJid, { text: customerMessage });
         } catch (err) {
           logger.error(err, "Error sending customer WhatsApp notification:");
         }
@@ -586,11 +601,9 @@ async function startServer() {
         }
       }
 
-      const dbClient = new pg.Client({
-        connectionString: dbConnectionString,
-        ssl: { rejectUnauthorized: false }
-      });
-      await dbClient.connect();
+      const dbClient = await dbPool.connect();
+
+      
 
       let booking;
       try {
@@ -604,79 +617,81 @@ async function startServer() {
         }
         booking = result.rows[0];
       } finally {
-        await dbClient.end();
+        dbClient.release();
       }
 
-      // Notify via WhatsApp if connected
-      if (isConnected && sock) {
-        // Notify Customer
-        if (booking.phone) {
-          let customerClean = booking.phone.replace(/\D/g, '');
-          if (customerClean.length === 10) {
-            customerClean = '91' + customerClean;
-          }
-          const customerJid = `${customerClean}@s.whatsapp.net`;
-          
-          let statusMessage = '';
-          if (booking.status === 'Confirmed') {
-            statusMessage = `✅ Ride Confirmed!\n\n` +
-              `Hi ${booking.name},\n` +
-              `Great news! Your ride (Booking ID: ${booking.booking_id}) has been confirmed.\n\n` +
-              `Trip Details:\n` +
-              `📅 Date: ${booking.booking_date}\n` +
-              `⏰ Time: ${booking.booking_time}\n` +
-              `📍 Pickup: ${booking.pickup_location || 'Not provided'}\n` +
-              `📞 Driver Phone: ${adminNumber || process.env.WHATSAPP_ADMIN_NUMBER || 'Not provided'}\n\n` +
-              `Our driver will arrive at the scheduled time. Thank you for choosing Ram Autos & Cabs!\n\n` +
-              `_Powered by Jemx Automation System_`;
-          } else if (booking.status === 'Completed') {
-            statusMessage = `🎉 Ride Completed!\n\n` +
-              `Hi ${booking.name},\n` +
-              `Your ride (Booking ID: ${booking.booking_id}) is now marked as completed.\n\n` +
-              `We hope you had a great trip with Ram Autos & Cabs! If you have a moment, we'd love to hear your feedback.\n\n` +
-              `_Powered by Jemx Automation System_`;
-          } else if (booking.status === 'Cancelled') {
-            statusMessage = `❌ Ride Cancelled\n\n` +
-              `Hi ${booking.name},\n` +
-              `We regret to inform you that your ride (Booking ID: ${booking.booking_id}) has been cancelled.\n\n` +
-              `If you have any questions or would like to rebook, please contact our support team.\n\n` +
-              `_Powered by Jemx Automation System_`;
-          } else {
-             statusMessage = `🔔 Booking Status Update\n\n` +
-              `Hi ${booking.name},\n` +
-              `Your ride (Booking ID: ${booking.booking_id}) status has been updated to: ${booking.status}.\n\n` +
-              `_Powered by Jemx Automation System_`;
-          }
-
-          try {
-            await sock.sendMessage(customerJid, { text: statusMessage });
-          } catch (err) {
-            logger.error(err, "Error sending customer status notification:");
-          }
-        }
-
-        // Notify Admin
-        const targetAdminNumber = adminNumber || process.env.WHATSAPP_ADMIN_NUMBER;
-        if (targetAdminNumber) {
-          let adminClean = targetAdminNumber.replace(/\D/g, '');
-          if (adminClean.length === 10) adminClean = '91' + adminClean;
-          const adminJid = `${adminClean}@s.whatsapp.net`;
-          
-          let adminStatusMessage = `🔄 *Status Update* | Ram Autos & Cabs\n\n` +
-            `The following booking has been updated:\n` +
-            `🆔 Booking ID: ${booking.booking_id}\n` +
-            `👤 Customer: ${booking.name}\n` +
-            `📌 New Status: *${booking.status}*`;
-
-          try {
-            await sock.sendMessage(adminJid, { text: adminStatusMessage });
-          } catch (err) {
-            logger.error(err, "Error sending admin status notification:");
-          }
-        }
-      }
-
+      // Notify via WhatsApp if connected (Fire and forget)
       res.json({ success: true, booking });
+
+      (async () => {
+        if (isConnected && sock) {
+          // Notify Customer
+          if (booking.phone) {
+            let customerClean = booking.phone.replace(/\D/g, '');
+            if (customerClean.length === 10) {
+              customerClean = '91' + customerClean;
+            }
+            const customerJid = `${customerClean}@s.whatsapp.net`;
+            
+            let statusMessage = '';
+            if (booking.status === 'Confirmed') {
+              statusMessage = `✅ Ride Confirmed!\n\n` +
+                `Hi ${booking.name},\n` +
+                `Great news! Your ride (Booking ID: ${booking.booking_id}) has been confirmed.\n\n` +
+                `Trip Details:\n` +
+                `📅 Date: ${booking.booking_date}\n` +
+                `⏰ Time: ${booking.booking_time}\n` +
+                `📍 Pickup: ${booking.pickup_location || 'Not provided'}\n` +
+                `📞 Driver Phone: ${adminNumber || process.env.WHATSAPP_ADMIN_NUMBER || 'Not provided'}\n\n` +
+                `Our driver will arrive at the scheduled time. Thank you for choosing Ram Autos & Cabs!\n\n` +
+                `_Powered by Jemx Automation System_`;
+            } else if (booking.status === 'Completed') {
+              statusMessage = `🎉 Ride Completed!\n\n` +
+                `Hi ${booking.name},\n` +
+                `Your ride (Booking ID: ${booking.booking_id}) is now marked as completed.\n\n` +
+                `We hope you had a great trip with Ram Autos & Cabs! If you have a moment, we'd love to hear your feedback.\n\n` +
+                `_Powered by Jemx Automation System_`;
+            } else if (booking.status === 'Cancelled') {
+              statusMessage = `❌ Ride Cancelled\n\n` +
+                `Hi ${booking.name},\n` +
+                `We regret to inform you that your ride (Booking ID: ${booking.booking_id}) has been cancelled.\n\n` +
+                `If you have any questions or would like to rebook, please contact our support team.\n\n` +
+                `_Powered by Jemx Automation System_`;
+            } else { 
+               statusMessage = `🔔 Booking Status Update\n\n` +
+                `Hi ${booking.name},\n` +
+                `Your ride (Booking ID: ${booking.booking_id}) status has been updated to: ${booking.status}.\n\n` +
+                `_Powered by Jemx Automation System_`;
+            }
+
+            try {
+              await sendWhatsAppMessageWithTimeout(customerJid, { text: statusMessage });
+            } catch (err) {
+              logger.error(err, "Error sending customer status notification:");
+            }
+          }
+
+          // Notify Admin
+          const targetAdminNumber = adminNumber || process.env.WHATSAPP_ADMIN_NUMBER;
+          if (targetAdminNumber) {
+            let adminClean = targetAdminNumber.replace(/\D/g, '');
+            if (adminClean.length === 10) adminClean = '91' + adminClean;
+            const adminJid = `${adminClean}@s.whatsapp.net`;
+            
+            let adminStatusMessage = `🔄 *Status Update* | Ram Autos & Cabs\n\n` +
+              `The following booking has been updated:\n` +
+              `🆔 Booking ID: ${booking.booking_id}\n` +
+              `👤 Customer: ${booking.name}\n` +
+              `📌 New Status: *${booking.status}*`;
+
+            try {
+              await sendWhatsAppMessageWithTimeout(adminJid, { text: adminStatusMessage });
+            } catch (err) {
+              logger.error(err, "Error sending admin status notification:");
+            }
+          }
+        }
+      })();
     } catch (error: any) {
       logger.error(error, "Error updating booking status:");
       res.status(500).json({ error: error.message });
@@ -740,7 +755,7 @@ async function startServer() {
         }
 
         try {
-          await sock.sendMessage(customerJid, { text: statusMessage });
+          await sendWhatsAppMessageWithTimeout(customerJid, { text: statusMessage });
         } catch (err) {
           logger.error(err, "Error sending customer status notification:");
         }
@@ -760,7 +775,7 @@ async function startServer() {
           `📌 New Status: *${booking.status}*`;
 
         try {
-          await sock.sendMessage(adminJid, { text: adminStatusMessage });
+          await sendWhatsAppMessageWithTimeout(adminJid, { text: adminStatusMessage });
         } catch (err) {
           logger.error(err, "Error sending admin status notification:");
         }

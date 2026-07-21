@@ -2,7 +2,11 @@ import pg from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
-const dbConnectionString = "postgresql://postgres:Auto@@&&CABD@db.bxvfcvszhvrbglvmuwxy.supabase.co:5432/postgres";
+const dbConnectionString = process.env.DATABASE_URL;
+if (!dbConnectionString) {
+  console.error("DATABASE_URL is not set");
+  process.exit(1);
+}
 
 async function applyRLS() {
   const dbClient = new pg.Client({
