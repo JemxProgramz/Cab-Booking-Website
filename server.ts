@@ -107,7 +107,12 @@ async function connectToWhatsApp() {
           sessionDeleted = true;
         }
       } else if (isQrTimeout) {
-        shouldReconnect = false;
+        shouldReconnect = true;
+        reconnectAttempts = 0; // Reset attempts so it keeps trying to generate QR
+        if (fs.existsSync(SESSION_DIR)) {
+          fs.rmSync(SESSION_DIR, { recursive: true, force: true });
+          sessionDeleted = true;
+        }
       }
       
       logger.info(
